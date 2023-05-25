@@ -16,10 +16,11 @@ public class MiniGameXO : MonoBehaviour
 
 
     // classic game 3x3, line of 3, no final move of noughts
-    const int SizeX = 3;
-    const int SizeY = 3;
-    const int WinLineSize = 3;
-    const bool FinalMoveOfNoughts = false;
+    public int SizeX = 3;
+    public int SizeY = 3;
+    public int WinLineSize = 3;
+    public bool FinalMoveOfNoughts = false;
+    public int Algorithm = 1;
 
     const float CellInterval = 6;
 
@@ -61,8 +62,14 @@ public class MiniGameXO : MonoBehaviour
             float centerX = (SizeX - 1) / 2f;
             float centerY = (SizeY - 1) / 2f;
 
+            /*
+            GameObject bg_img = canvasBoard.transform.Find("BackgroundImage").gameObject;
+            Image img = (Image)bg_img.GetComponent(typeof(Image));
+            img.color = Color.green;
+            */
+
             for (int x = 0; x < SizeX; x++)
-                for (int y = 0; y < SizeX; y++)
+                for (int y = 0; y < SizeY; y++)
                 {
                     GameObject cell = Instantiate(cellPrefab, new Vector3((x - centerX) * CellInterval, (y - centerY) * CellInterval, 0), Quaternion.identity);
                     cell.transform.SetParent(canvasBoard.transform, false);
@@ -149,6 +156,18 @@ public class MiniGameXO : MonoBehaviour
     private IPlayer CreateAIPlayer()
     {
         // TODO: create different types of AI players depending on settings
-        return new PlayerTraverse(AI_player_time_limit);
+        if (Algorithm == 1)
+        {
+            return new PlayerTraverse(AI_player_time_limit);
+        }
+        else if (Algorithm == 2)
+        {
+            return new PlayerOrderedTraverse(AI_player_time_limit);
+        }
+        else
+        {
+            return new PlayerRandom();
+        }
+
     }
 }
