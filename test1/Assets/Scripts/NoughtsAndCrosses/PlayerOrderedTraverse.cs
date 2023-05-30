@@ -43,8 +43,8 @@ namespace NoughtsAndCrosses
         private long HardStopTicks;
 
         private int level;
-        const int MaxDepth = 6;
-        private readonly int[] MaxBranches = new int[] { 20, 8, 4 }; // max branches to traverse from each node
+        const int MaxDepth = 4;
+        private readonly int[] MaxBranches = new int[] { 8, 8, 4 }; // max branches to traverse from each node
 
         string[] levels;
         int moves_counter;
@@ -202,7 +202,7 @@ namespace NoughtsAndCrosses
                             ((op_score == Score.Loss || op_score == Score.OpponentCanWin) ? Score.OpponentCanLose : 
                             ((op_score == Score.Win || op_score == Score.OpponentCanLose) ? Score.OpponentCanWin : Score.OpponentCanDraw));
                         */
-                        Score score = opponent_best_move.Score == Score.Loss ? Score.Win : (opponent_best_move.Score == Score.Win ? Score.Loss : opponent_best_move.Score);
+                        Score score = opponent_best_move.Score == Score.Loss ? Score.Win : (opponent_best_move.Score == Score.Win ? Score.Loss : (opponent_best_move.Score == Score.None ? Score.Unknown : opponent_best_move.Score));
                         //Console.WriteLine("best.score={0} X={1} Y={2}, score={3}, level={4}", best.Score, best.X, best.Y, score, level);
                         if (best.Score < score)
                         {
