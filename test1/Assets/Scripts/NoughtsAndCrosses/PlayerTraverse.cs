@@ -29,7 +29,10 @@ namespace NoughtsAndCrosses
         private readonly int TimeLimitTicks;
 
         private long HardStopTicks;
-        int moves_counter;
+        private int moves_counter;
+        private int level;
+
+        public ILogger logger = null;
 
         public PlayerTraverse(int timeLimitTicks)
         {
@@ -40,7 +43,22 @@ namespace NoughtsAndCrosses
         {
             HardStopTicks = DateTime.Now.Ticks + TimeLimitTicks;
             moves_counter = 0;
+            level = 1;
+            StringBuilder loggerBoardComment = null;
+            if (logger != null)
+            {
+                logger.Start();
+                loggerBoardComment = logger.PrintBoard(game, "", level);
+            }
             Move move = FindBestMove(game);
+            if (logger != null)
+            {
+                if (loggerBoardComment != null)
+                {
+                    loggerBoardComment.Append(string.Format("Best Move: ({0},{1}), score={2}", move.X, move.Y, move.Score));
+                }
+                logger.Finish();
+            }
 
             long ticks_elapsed = DateTime.Now.Ticks - HardStopTicks + TimeLimitTicks;
             Console.WriteLine("Ticks elapsed: {0}; Move: X={1},Y={2},Score={3}",
@@ -52,12 +70,13 @@ namespace NoughtsAndCrosses
 
         private Move FindBestMove(GameBoard game)
         {
+            level++;
             GameWinner anticipated_winner = game.NextMove == Mark.Cross ? GameWinner.Cross : GameWinner.Nought;
             Mark[,] board = game.GetBoard();
             bool board_is_empty = true;
             Move best = new Move { Score = Score.None };
-            for (int y = 0; y < game.SizeY; y++)
-                for (int x = 0; x < game.SizeX; x++)
+            for (int y = 0; y < game.SizeY && best.Score < Score.Win; y++)
+                for (int x = 0; x < game.SizeX && best.Score < Score.Win; x++)
                     if (board[x, y] == Mark.None)
                     {
                         if (best.Score == Score.None)
@@ -70,9 +89,20 @@ namespace NoughtsAndCrosses
                         game_branch.Move(x, y);
                         moves_counter++;
                         //game_branch.PrintBoard(true);
+
+                        StringBuilder loggerBoardComment = null;
+                        if (logger != null)
+                        {
+                            loggerBoardComment = logger.PrintBoard(game_branch, "[" + moves_counter + "]", level);
+                        }
+
                         if (game_branch.NextMove == Mark.None)
                         {
                             Score score = game_branch.Winner == anticipated_winner ? Score.Win : (game_branch.Winner == GameWinner.Draw ? Score.Draw : Score.Loss);
+                            if (loggerBoardComment != null)
+                            {
+                                loggerBoardComment.Append(score.ToString());
+                            }
                             if (best.Score < score)
                             {
                                 best.X = x;
@@ -87,6 +117,10 @@ namespace NoughtsAndCrosses
                             {
                                 Move opponent_best_move = FindBestMove(game_branch);
                                 Score score = opponent_best_move.Score == Score.Loss ? Score.Win : (opponent_best_move.Score == Score.Win ? Score.Loss : opponent_best_move.Score);
+                                if (loggerBoardComment != null)
+                                {
+                                    loggerBoardComment.Append(score.ToString());
+                                }
                                 if (best.Score < score)
                                 {
                                     best.X = x;
@@ -107,6 +141,8 @@ namespace NoughtsAndCrosses
                 best.X = game.SizeX / 2;
                 best.Y = game.SizeY / 2;
             }
+
+            level--;
             return best;
         }
     }

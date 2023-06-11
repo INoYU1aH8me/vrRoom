@@ -59,16 +59,10 @@ namespace NoughtsAndCrosses
         /// <summary>
         /// Current state of the game board
         /// </summary>
-        private readonly Mark[,] Board;
-        
-        /// <summary>
-        /// X coordinate of the latest move
-        /// </summary>
-        public int LatestMoveX { get; private set; }
+        protected readonly Mark[,] Board;
 
-        /// <summary>
-        /// Y coordinate of the latest move
-        /// </summary>
+
+        public int LatestMoveX { get; private set; }
         public int LatestMoveY { get; private set; }
 
         /// <summary>
@@ -127,11 +121,13 @@ namespace NoughtsAndCrosses
             WinLineSize = boardToCopy.WinLineSize;
             AllowEqualMoves = boardToCopy.AllowEqualMoves;
             Board = boardToCopy.GetBoard();
+            LatestMoveX = boardToCopy.LatestMoveX;
+            LatestMoveY = boardToCopy.LatestMoveY;
             NextMove = boardToCopy.NextMove;
             FreeFields = boardToCopy.FreeFields;
             Winner = boardToCopy.Winner;
             WinLines = new List<LineOfMarks>();
-            WinLines.AddRange(boardToCopy.WinLines);
+            WinLines.AddRange((LineOfMarks[])boardToCopy.WinLines.ToArray().Clone());
         }
 
         /// <summary>
@@ -150,9 +146,9 @@ namespace NoughtsAndCrosses
             {
                 throw new InvalidOperationException(string.Format("The field [{0},{1}] is occupied.", x, y));
             }
+            Board[x, y] = NextMove;
             LatestMoveX = x;
             LatestMoveY = y;
-            Board[x, y] = NextMove;
             LineOfMarks line = FindWinLine(x, y);
             if (line != null)
             {

@@ -31,6 +31,7 @@ namespace NoughtsAndCrosses
             public int OpponentHeuristicMetric;
             public Score OpponentBestScore;
             public Score BestNextMoveScore;
+            public int counter;
         }
 
         /// <summary>
@@ -58,9 +59,11 @@ namespace NoughtsAndCrosses
         /// </summary>
         private long HardStopTicks;
 
+        public ILogger logger = null;
+
         private int level;
-        const int MaxDepth = 4;
-        private readonly int[] MaxBranches = new int[] { 8, 8, 4 }; // max branches to traverse from each node
+        const int MaxDepth = 6;
+        private readonly int[] MaxBranches = new int[] { 20, 8, 4 }; // max branches to traverse from each node
 
         string[] levels;
         int moves_counter;
@@ -76,7 +79,25 @@ namespace NoughtsAndCrosses
             level = 0;
             levels = new string[MaxDepth+1];
             moves_counter = 0;
+
+            StringBuilder loggerBoardComment = null;
+            if (logger != null)
+            {
+                logger.Start();
+                loggerBoardComment = logger.PrintBoard(game, "", level+1);
+            }
+
             Move move = FindBestMove(game);
+
+            if (logger != null)
+            {
+                if (loggerBoardComment != null)
+                {
+                    loggerBoardComment.Append(string.Format("Best Move: ({0},{1}), score={2}", move.X, move.Y, move.Score));
+                }
+                logger.Finish();
+            }
+
             long ticks_elapsed = DateTime.Now.Ticks - HardStopTicks + TimeLimitTicks;
             if (LogLevel > 0)
             {
@@ -122,14 +143,15 @@ namespace NoughtsAndCrosses
                             (my_lines.Max(line => line.length) + enemy_lines.Max(line => line.length)) * 100 +
                             my_lines.Sum(line => line.length) + enemy_lines.Sum(line => line.length);
 
+                        moves_counter++;
                         Move move = new Move() {
                             X = x,
                             Y = y,
                             Score = Score.None,
                             HeuristicMetric = metric,
-                            OpponentHeuristicMetric = 0
+                            OpponentHeuristicMetric = 0,
+                            counter = moves_counter
                         };
-                        moves_counter++;
 
                         // best score and move score is Unknown at this point
                         if (best.HeuristicMetric < move.HeuristicMetric)
@@ -167,6 +189,7 @@ namespace NoughtsAndCrosses
             {
                 GameBoard game_branch = new GameBoard(game);
                 game_branch.Move(move.X, move.Y);
+
                 if (game_branch.NextMove == Mark.None)
                 {
                     Score score = game_branch.Winner == anticipated_winner ? Score.Win : (game_branch.Winner == GameWinner.Draw ? Score.Draw : Score.Loss);
@@ -174,10 +197,18 @@ namespace NoughtsAndCrosses
                     {
                         best = move;
                         best.Score = score;
+                        if (logger != null)
+                        {
+                            logger.PrintBoard(game_branch, string.Format("[{0}] S:{1}", moves_counter, score), level + 1);
+                        }
                         if (LogLevel > 1)
                         {
                             Console.WriteLine("Better1: level={0},X={1},Y={2},Score={3},BestNextMoveScore={4},HeuristicMetric={5},OpponentHeuristicMetric={6}", level, best.X, best.Y, best.Score, best.BestNextMoveScore, best.HeuristicMetric, best.OpponentHeuristicMetric);
                             game_branch.PrintBoard();
+                        }
+                        if (best.Score == Score.Win)
+                        {
+                            break;
                         }
                     }
                 }
@@ -200,17 +231,24 @@ namespace NoughtsAndCrosses
             {
                 MaxBr = branches_to_dig.Count;
             }
-            for (int branch_count = 0; branch_count < MaxBr; branch_count++)
+            for (int branch_count = 0; branch_count < MaxBr && best.Score < Score.Win; branch_count++)
             {
                 GameBoard game_branch = branches_to_dig[branch_count];
                 Move move = moves_to_dig[branch_count];
 
                 // If we have time and did not reach depth limit, go into depth, otherwise finish current phase
-                if (DateTime.Now.Ticks < HardStopTicks && level < MaxDepth)
+                if (DateTime.Now.Ticks < HardStopTicks && level <= MaxDepth)
                 {
                     if (LogLevel > 2)
                     {
                         Console.Write(" [L={0} {1}({2},{3})[ ", level, (game.NextMove == Mark.Cross ? 'X' : 'O'), move.X, move.Y);
+                    }
+
+
+                    StringBuilder loggerBoardComment = null;
+                    if (logger != null)
+                    {
+                        loggerBoardComment = logger.PrintBoard(game_branch, string.Format("[{0}]", moves_counter), level + 1);
                     }
                     // trying to guess best move of the opponent
                     Move opponent_best_move = FindBestMove(game_branch);
@@ -227,6 +265,12 @@ namespace NoughtsAndCrosses
                     }
 
                     Score score = opponent_best_move.Score == Score.Loss ? Score.Win : (opponent_best_move.Score == Score.Win ? Score.Loss : (opponent_best_move.Score == Score.None ? Score.Unknown : opponent_best_move.Score));
+
+                    if (loggerBoardComment != null)
+                    {
+                        loggerBoardComment.Append(string.Format("S:{0} H:{1} N:{2}", score, move.HeuristicMetric, opponent_best_move.OpponentBestScore));
+                    }
+
                     if (LogLevel > 2)
                     {
                         Console.WriteLine("best.score={0} X={1} Y={2}, score={3}, level={4}", best.Score, best.X, best.Y, score, level);
