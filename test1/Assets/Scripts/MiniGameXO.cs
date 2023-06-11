@@ -6,6 +6,8 @@ using UnityEngine.UI;
 using TMPro;
 using NoughtsAndCrosses;
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 
 public class MiniGameXO : MonoBehaviour
 {
@@ -33,6 +35,10 @@ public class MiniGameXO : MonoBehaviour
     private IPlayer playerAI;
     private GameBoard game;
 
+    private bool playerAImoveInprogress = false;
+    private string nextMoveMark;
+    private Task playerAItask;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -42,7 +48,10 @@ public class MiniGameXO : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        
+        if (playerAImoveInprogress && playerAItask.IsCompleted)
+        {
+            ShowAIMoveResult();
+        }
     }
 
     public void InitGame()
@@ -89,41 +98,59 @@ public class MiniGameXO : MonoBehaviour
 
     void ButtonClicked(int x, int y)
     {
-        if (game.NextMove != Mark.None && game.CheckField(x, y, Mark.None))
+        lock (game)
         {
-            GameObject cell = cells[x, y];
-            GameObject cellText = cell.transform.Find("CellText").gameObject;
-            TextMeshProUGUI text = (TextMeshProUGUI)cellText.GetComponent(typeof(TextMeshProUGUI));
-            text.SetText(game.NextMove == Mark.Cross ? "X" : "O");
-
-            game.Move(x, y);
-
-            if (game.NextMove != Mark.None)
+            if (!playerAImoveInprogress && game.NextMove != Mark.None && game.CheckField(x, y, Mark.None))
             {
-                MakeAIMove();
-            }
-            else
-            {
-                ShowWinner();
+                GameObject cell = cells[x, y];
+                GameObject cellText = cell.transform.Find("CellText").gameObject;
+                TextMeshProUGUI text = (TextMeshProUGUI)cellText.GetComponent(typeof(TextMeshProUGUI));
+                text.SetText(game.NextMove == Mark.Cross ? "X" : "O");
+
+                game.Move(x, y);
+
+                if (game.NextMove != Mark.None)
+                {
+                    MakeAIMove();
+                }
+                else
+                {
+                    ShowWinner();
+                }
             }
         }
     }
 
     private void MakeAIMove()
     {
-        string nextMoveMark = game.NextMove == Mark.Cross ? "X" : "O";
-        playerAI.MakeMove(game);
-        GameObject cell = cells[game.LatestMoveX, game.LatestMoveY];
-        GameObject cellText = cell.transform.Find("CellText").gameObject;
-        TextMeshProUGUI text = (TextMeshProUGUI)cellText.GetComponent(typeof(TextMeshProUGUI));
-        text.SetText(nextMoveMark);
-
-        if (game.NextMove == Mark.None)
+        nextMoveMark = game.NextMove == Mark.Cross ? "X" : "O";
+        lock (game)
         {
-            ShowWinner();
+            playerAImoveInprogress = true;
+            playerAItask = new Task(() => playerAI.MakeMove(game));
+            playerAItask.Start();
         }
     }
 
+    private void ShowAIMoveResult()
+    {
+        lock (game)
+        {
+            if (playerAImoveInprogress)
+            {
+                playerAImoveInprogress = false;
+                GameObject cell = cells[game.LatestMoveX, game.LatestMoveY];
+                GameObject cellText = cell.transform.Find("CellText").gameObject;
+                TextMeshProUGUI text = (TextMeshProUGUI)cellText.GetComponent(typeof(TextMeshProUGUI));
+                text.SetText(nextMoveMark);
+
+                if (game.NextMove == Mark.None)
+                {
+                    ShowWinner();
+                }
+            }
+        }
+    }
     private void ShowWinner()
     {
         if (game.Winner != GameWinner.None)
